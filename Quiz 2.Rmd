@@ -1,0 +1,43 @@
+5.)  Create a training data set consisting of only the predictors with variable names beginning 
+with IL and the diagnosis. Build two predictive models, one using the predictors as they are and
+one using PCA with principal components explaining 80% of the variance in the predictors. Use 
+method="glm" in the train function. What is the accuracy of each method in the test set? Which 
+is more accurate?
+
+```{r}
+library(caret)
+library(AppliedPredictiveModeling)
+set.seed(3433)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+training = adData[ inTrain,]
+testing = adData[-inTrain,]
+
+set.seed(3433)
+IL <- grep("^IL", colnames(training), value=TRUE)
+
+newpredictors <- predictors[,IL]
+newData=data.frame(diagnosis, newpredictors)
+in2Train <- createDataPartition(newData$diagnosis, p=3/4)[[1]]
+newTrain <- newData[in2Train,]
+newTest <- newData[-in2Train,]
+
+## MODELS
+## As they are
+modelFit <- train(diagnosis ~ ., method="glm", data=newTrain)
+PmodelFit <- predict(modelFit, newTest)
+CMmodelFit <- confusionMatrix(newTest$diagnosis, PmodelFit)
+
+## PCA with 80% variance explained
+set.seed(3433)
+modelFit80 <- train(diagnosis ~ ., method="glm", preProcess="pca", trControl = trainControl(preProcOptions = list(thresh = 0.8)), data=newTrain)
+PmodelFit80 <- predict(modelFit80, newTest)
+CMmodelFit80 <- confusionMatrix(newTest$diagnosis, PmodelFit80)
+
+print(CMmodelFit)
+print(CMmodelFit80)
+```
+
+modelFit accuracy = .6829
+modelFit80 Accuracy = .7195
