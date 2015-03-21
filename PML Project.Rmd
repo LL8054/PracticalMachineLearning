@@ -1,0 +1,27 @@
+---
+title: "PML Project"
+output: html_document
+---
+
+This project aims to predict if a sequence of exercise movements is performed correctly according to their intentions. The data are collected from six participants fitted with accelerometers on their forearms, belts, arms, and dumbells.  They were asked to perform barbell lifts correctly and incorrectly in 5 different ways while their movements were recorded.  The data, which are taken from <http://groupware.les.inf.puc-rio.br/har>, are subsetted into training and test sets.  The training set data will be used to train a predictive model and then the test set data will be used to predict if the movements were correct (class A) or incorrect exercise movements.  
+
+Obtaining and subsetting the datasets.
+```{r message=FALSE}
+library(RCurl)
+training.file <- getURL("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+training.csv <- read.csv(text = training.file)
+
+testing.file <- getURL("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+testing.csv <- read.csv(text = testing.file)
+
+
+inTrain <- createDataPartition(y=training.csv$classe, p=3/4, list=FALSE)
+testing <- training.csv[-inTrain, ]
+training <- training.csv[inTrain,]
+```
+
+Training the model
+```{r}
+modelFit <- train(classe ~ ., method="rf", preProcess="pca", trControl = trainControl(preProcOptions = list(thresh = 0.8), method="cv", number="5"), data=training, ntrees=50)
+```
+
