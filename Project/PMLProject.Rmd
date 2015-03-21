@@ -99,26 +99,26 @@ RF is the first model that comes to mind for classification and regression (at l
 ```{r}
 set.seed(1)
 modelFitRF <- randomForest(classe ~ ., data=training)       #Fitting the model
-predictRF <- predict(modelFitRF, validating, type="class")  #Predicting using our trained model
+predictRF <- predict(modelFitRF, validating, type="class")  #Predicting error using cross validation
 cmRF <- confusionMatrix(predictRF, validating$classe)       #Comparing the results to discover accuracy
 cmRF$overall['Accuracy']
 table(predictRF, validating$classe)
 ```
-An Accuracy of `r round(cmRF$overall['Accuracy'],5)` is NICE, especially considering that number is generated NOT for the dataset used to train the model but instead for another dataset, the validation dataset.  Let's try another model though and see if we can improve on that error number.
+An Accuracy of `r round(cmRF$overall['Accuracy'],5)` is NICE, especially considering that number is generated NOT for the training dataset but instead for the cross validation dataset.  Naturally, our error percentage would improve with repeated instances of the previous processes, but since there is inherent cross validation (k-fold) built into the Random Forest algorithm and also since we cross validated the model with a new dataset, validation, the improvements would be negligible.  Let's try another model though and see if we can improve on that error number.
 
 ### <font color=blue> Training Model 2: Ctree </font>
 Ctree is another recursive partitioning method like random forest, but it has a slight change in that it also includes an algorithm based on [parametric models](http://cran.r-project.org/web/packages/party/index.html). Ctree also uses [algorithms to select variables by significance and weighting of distributional properties of the measures.](http://cran.r-project.org/web/packages/partykit/vignettes/ctree.pdf) Plain talk-  we'll see if there's a way to improve on the branches of the tree.   
 ```{r}
 set.seed(1)
 modelFitCT <- ctree(classe ~ ., data=training)                #Fitting the model
-predictCT <- predict(modelFitCT, validating)                  #Prediction 
+predictCT <- predict(modelFitCT, validating)                  #Prediction via cross validation
 cmCT <- confusionMatrix(predictCT, validating$classe)        #Accuracy
 cmCT$overall['Accuracy']
 table(predictCT, validating$classe)
 ```
-As the table of prediction results and the accuracy of `r round(cmCT$overall['Accuracy'],2)` reveal, this method's worse than random forest.  
+After cross validating with the validation dataset gives us an accuracy of `r round(cmCT$overall['Accuracy'],2)` we can see this method's worse than random forest.  
 
-Truth be told I don't think we can beat Random Forest's accuracy of `r round(cmRF$overall['Accuracy'],5)*100` percent.  The Random Forest model will be used to predict the 20 test cases from testing.  Even though the out-of-sample error can't be predicted exactly, Random Forest's in-sample error after cross validation was the lowest.  And since we know cross validated the model with a validation data set instead of the training data set we expect the error to be very close to the same.  Hence we'll use the Random Forest model to predict the final 20 instances.
+Truth be told I don't think we can beat Random Forest's accuracy of `r round(cmRF$overall['Accuracy'],5)*100` percent.  The Random Forest model will be used to predict the 20 test cases from testing.  Even though the out-of-sample error can't be predicted exactly, Random Forest's in-sample error after cross validation was the lowest.  And since we cross validated the model with a validation data set instead of the training data set we expect the error to be very close but just a little higher due to out-of-sample error.  Hence we'll use the Random Forest model to predict the final 20 instances.
 ```{r}
 predictFinalRF <- predict(modelFitRF, finaltesting.csv, type="class")
 ```
