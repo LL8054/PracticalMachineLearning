@@ -1,0 +1,141 @@
+---
+title: <font color="#CC5500">PML Project</font>
+output: html_document
+author: Lawrence Lau
+---
+
+This project aims to predict if a sequence of exercise movements is performed correctly according to their intentions. The data are collected from six participants fitted with accelerometers on their forearms, belts, arms, and dumbells.  They were asked to perform barbell lifts correctly and incorrectly in 5 different ways while their movements were recorded.  The data, which are taken from <http://groupware.les.inf.puc-rio.br/har>, are subsetted into training and test sets.  The training set data will be used to train a predictive model and then the test set data will be used to predict if the movements were correct (class A) or incorrect exercise movements.  
+
+In this project we use the following packages (if you don't have any of them already installed make sure to do so first).
+```{r message=FALSE, warning=FALSE}
+library(RCurl)
+library(caret)
+library(randomForest)
+library(e1071)
+library(party)
+library(arm)
+```
+
+### <font color=blue> Obtaining the datasets. </font>
+```{r message=FALSE}
+training.file <- getURL("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+training.csv <- read.csv(text = training.file)
+
+testing.file <- getURL("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+testing.csv <- read.csv(text = testing.file)
+dim(training.csv)
+dim(testing.csv)
+```
+
+### <font color=blue> Data Tidying </font>
+Let's take a look at the different columns (also known as variables).
+```{r message=FALSE}
+ident <- logical(length=length(training.csv))
+for (i in 1:length(training.csv)) {
+        ident[i] <- identical(names(training.csv[i]), names(testing.csv[i])) 
+}
+which(ident=="FALSE")
+```
+The column names for both datasets are identical except for columns 160, which are incidentally the last columns in each dataset.  In training.csv that column is "`r names(training.csv[160])`" and in testing.csv it's "`r names(testing.csv[160])`". I'll go ahead and remove the "problem_id" column from testing.csv since we won't need it. After we do so the name of the last column in that dataset should be "`r names(testing.csv[length(testing.csv)-1])`".
+
+```{r}
+testing.csv <- testing.csv[,-length(testing.csv)]
+names(testing.csv[length(testing.csv)])
+```
+Perfect.
+
+In their current states, both training.csv and testing.csv datasets have a large number of explanatory variables (159).  It would take a long time to run any kind of training model with that many variables (especially with as many observations/instances as there are in the training.csv dataset, 19,622) so we'll eliminate any variables that are similar throughout all observations by identifying their variance, which will be close to zero. We'll tidy the training.csv dataset first and then apply those exact same transformations to testing.csv.
+```{r}
+#Zero Variance Tidying
+zerovars <- nearZeroVar(training.csv)
+newtraining.csv <- training.csv[,-zerovars]
+newtesting.csv <- testing.csv[,-zerovars]
+dim(newtraining.csv)
+dim(newtesting.csv)
+```
+Now we have the number of variables cut down to `r length(newtraining.csv)-1`.
+
+Now I want to eliminate those variables where the majority of their values are NAs.  So any column with > 50% NAs will be gone.
+```{r}
+#NA Tidying
+nas <- apply(newtraining.csv, 2, function(x) sum(is.na(x)/length(x)))
+exclude <- which(nas > .50)
+newtraining2.csv <- newtraining.csv[,-exclude]
+newtesting2.csv <- newtesting.csv[,-exclude]
+dim(newtraining2.csv)
+dim(newtesting2.csv)
+```
+We're now down to `r length(newtraining.csv)-1` variables.
+
+What else.  The first columns of each dataset are indexes.  Those can go.  So can the the next four columns which include the individuals' user names and the timestamps of each movement.  They're irrelevant to our project. 
+```{r}
+#Manual Tidying
+newtraining3.csv <- newtraining2.csv[,-c(1:5)]
+newtesting3.csv <- newtesting2.csv[,-c(1:5)]
+dim(newtraining3.csv)
+dim(newtesting3.csv)
+```
+Remember, newtraining3.csv will have one extra column because it retains the "classe" column which is our outcome.  We're now at 53 explanatory variables which is good enough to work with.  
+
+Let's construct our final datasets:  we'll have a mega-training dataset (finaltraining.csv) and a mega-testing dataset (finaltesting.csv).  Finaltraining.csv will be subsetted further into another training set and a cross validation set because the training algorithms I've chosen to use contain very good k-fold cross validation checks.  If the training algorithm is used on just the dataset used to train the model, the cross validation will effectively generate predictions with zero error.  To that end, we'll have to run a cross validation of the model not in the training set, rather in the validation set.  
+```{r}
+#the 2 mega datasets
+finaltraining.csv <- newtraining3.csv
+finaltesting.csv <- newtesting3.csv
+
+#subsetting the mega training set into a smaller training set and a validation set 
+inTrain <- createDataPartition(y=finaltraining.csv$classe, p=3/4, list=FALSE)
+validating <- finaltraining.csv[-inTrain, ]
+training <- finaltraining.csv[inTrain,]
+dim(training)
+dim(validating)
+```
+
+### <font color=blue> Before we start the heavy lifting... </font>
+We're going to expect out-of-sample error from our prediction models, obviously.  I'm expecting an error estimate of 3% or less, given our 70% training sample which should sufficiently provide enough data for training purposes.  We can leverage our training sample set by choosing training methods which recursively partition the dataset-  that is, datasets that select and replace slices or folds of data for each tree.  Since those types of methods have been proven to be the most accurate we'll compare two of them:  Random Forest and Ctree.  
+
+### <font color=blue> Training Model 1: Random Forest </font>
+RF is the first model that comes to mind for classification and regression (at least for me).  Since it uses recursive partitioning bootstrap sampling for every tree it's extremely accurate.  
+```{r}
+set.seed(1)
+modelFitRF <- randomForest(classe ~ ., data=training)       #Fitting the model
+predictRF <- predict(modelFitRF, validating, type="class")  #Predicting using our trained model
+cmRF <- confusionMatrix(predictRF, validating$classe)       #Comparing the results to discover accuracy
+cmRF$overall['Accuracy']
+table(predictRF, validating$classe)
+```
+An Accuracy of `r round(cmRF$overall['Accuracy'],5)` is NICE, especially considering that number is generated NOT for the dataset used to train the model but instead for another dataset, the validation dataset.  Let's try another model though and see if we can improve on that error number.
+
+### <font color=blue> Training Model 2: Ctree </font>
+Ctree is another recursive partitioning method like random forest, but it has a slight change in that it also includes an algorithm based on [parametric models](http://cran.r-project.org/web/packages/party/index.html). Ctree also uses [algorithms to select variables by significance and weighting of distributional properties of the measures.](http://cran.r-project.org/web/packages/partykit/vignettes/ctree.pdf) Plain talk-  we'll see if there's a way to improve on the branches of the tree.   
+```{r}
+set.seed(1)
+modelFitCT <- ctree(classe ~ ., data=training)                #Fitting the model
+predictCT <- predict(modelFitCT, validating)                  #Prediction 
+cmCT <- confusionMatrix(predictCT, validating$classe)        #Accuracy
+cmCT$overall['Accuracy']
+table(predictCT, validating$classe)
+```
+As the table of prediction results and the accuracy of `r round(cmCT$overall['Accuracy'],2)` reveal, this method's worse than random forest.  
+
+Truth be told I don't think we can beat Random Forest's accuracy of `r round(cmRF$overall['Accuracy'],5)*100` percent.  The Random Forest model will be used to predict the 20 test cases from testing.  Even though the out-of-sample error can't be predicted exactly, Random Forest's in-sample error after cross validation was the lowest.  And since we know cross validated the model with a validation data set instead of the training data set we expect the error to be very close to the same.  Hence we'll use the Random Forest model to predict the final 20 instances.
+```{r}
+predictFinalRF <- predict(modelFitRF, finaltesting.csv, type="class")
+```
+
+Submitting the answers.
+```{r}
+answers <- paste(predictFinalRF) #converting predictFinalRF to a character vector
+
+#the function given to write the answers to 20 individual text files
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(answers)
+```
+
