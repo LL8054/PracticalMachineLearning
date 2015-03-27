@@ -13,20 +13,23 @@ library(caret)
 library(gbm)
 library(mgcv)
 library(nlme)
+library(elasticnet)
 ```
 
 Set the variable y to be a factor variable in both the training and test set. Then set the seed to 33833. Fit (1) a random forest predictor relating the factor variable y to the remaining variables and (2) a boosted predictor using the "gbm" method. Fit these both with the train() command in the caret package. 
 
 What are the accuracies for the two approaches on the test data set? What is the accuracy among the test set samples where the two methods agree?
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, echo=FALSE}
 vowel.train$y <- factor(vowel.train$y)
 vowel.test$y <- factor(vowel.test$y)
 set.seed(33833)
 
 rf <- train(y~., method="rf", data=vowel.train)
 gbm <- train(y~., method="gbm", data=vowel.train)
+```
 
+```{r message=FALSE, warning=FALSE}
 prf <- predict(rf, vowel.test)
 pgbm <- predict(gbm, vowel.test)
 
@@ -36,19 +39,19 @@ cmgbm <- confusionMatrix(pgbm, vowel.test$y)
 cmrf$overall['Accuracy']
 cmgbm$overall['Accuracy']
 
-### following chunk doesn't work for some reason
+### combined accuracy model
 datacombined <- data.frame(prf, pgbm, y=vowel.test$y)
-fit <- train(y~., datacombined, method="gam")
-pfit <- predict(fit, datacombined)
+fit <- train(y~., datacombined)
+pfit <- predict(fit, vowel.test)
 cmpfit <- confusionMatrix(pfit, vowel.test$y)
 cmpfit$overall['Accuracy']
-### end chunk that doesn't work
 
 
 ```
 
 
 ```{r warning=FALSE, message=FALSE}
+### manual calculation for accuracy
 adata <- data.frame("prf"=numeric(), "pgbm"=numeric(), "y"=numeric())
 for (i in 1:nrow(datacombined)) {
     if (identical(datacombined[i,1],datacombined[i,2])){
@@ -69,6 +72,10 @@ count / nrow(adata)
 
 Accuracy for combined method is `r count / nrow(adata)`.
 
+RF Accuracy = .60606 
+GBM Accuracy = .530303
+Combined Accuracy = .6622 (manual calc) or .699 (combined accuracy model) depending which way you use to calculate
+
 2.)  Load the Alzheimer's data using the following commands
 
 ```{r warning=FALSE, message=FALSE}
@@ -88,27 +95,111 @@ Set the seed to 62433 and predict diagnosis with all the other variables using a
 ```{r message=FALSE, warning=FALSE}
 set.seed(62433)
 
-#RF
-fitRF <- train(diagnosis~., method="rf", training)
-pRF <- predict(fitRF, testing)
-cmRF <- confusionMatrix(pRF, testing$diagnosis)
-cmRF$overall['Accuracy']
-
-#boosted trees
+fitRF <- train(diagnosis~., method="rf", training, trControl=trainControl(number=3))
 fitGBM <- train(diagnosis~., method="gbm", training)
-pGBM <- predict(fitGBM, testing)
-cmGBF <- confusionMatrix(pGBM, testing$diagnosis)
-cmGBF$overall['Accuracy']
-
-#linear discriminant analysis
 fitLDA <- train(diagnosis~., method="lda", training)
-pLDA <- predict(fitLDA, testing)
-cmLDA <- confusionMatrix(pLDA, testing$diagnosis)
-cmLDA$overall['Accuracy']
+```
 
-combinedset <- data.frame(pRF, pGBM, pLDA, diagnosis <- testing$diagnosis)
-fit <- train(diagnosis~., combinedset)
-predict <- predict(fit, combinedset)
+```{r warning=FALSE, message=FALSE}
+pRF <- predict(fitRF, testing)
+pGBM <- predict(fitGBM, testing)
+pLDA <- predict(fitLDA, testing)
+
+combinedset <- data.frame(pRF, pGBM, pLDA, diagnosis = testing$diagnosis)
+fit <- train(diagnosis~., combinedset, method="rf")
+predict <- predict(fit, testing)
+
+
+cmRF <- confusionMatrix(pRF, testing$diagnosis)
+cmGBF <- confusionMatrix(pGBM, testing$diagnosis)
+cmLDA <- confusionMatrix(pLDA, testing$diagnosis)
 cm <- confusionMatrix(predict, testing$diagnosis)
+
+cmRF$overall['Accuracy']
+cmGBF$overall['Accuracy']
+cmLDA$overall['Accuracy']
 cm$overall['Accuracy']
 ```
+
+RF Accuracy = .7682927
+GBM Accuracy = .7926829
+LDA Accuracy = .7682927
+combined Accuracy = .8049
+
+Stacked Accuracy: 0.79 is better than random forests and lda and the same as boosting.
+
+3.)  Load the concrete data with the commands:
+```{r message=FALSE, warning=FALSE}
+set.seed(3523)
+library(AppliedPredictiveModeling)
+data(concrete)
+inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
+training = concrete[ inTrain,]
+testing = concrete[-inTrain,]
+```
+
+Set the seed to 233 and fit a lasso model to predict Compressive Strength. Which variable is the last coefficient to be set to zero as the penalty increases? (Hint: it may be useful to look up ?plot.enet).
+
+```{r warning=FALSE, message=FALSE}
+set.seed(233)
+
+fit <- train(CompressiveStrength ~ ., training, method="lasso")
+plot.enet(fit$finalModel, xvar="penalty", use.color=TRUE)
+legend('topright')
+```
+
+last coefficient to be set to zero is Cement.
+
+4.) Load the data on the number of visitors to the instructors blog from here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/gaData.csv
+
+Using the commands:
+
+```{r warning=FALSE, message=FALSE}
+library(forecast)
+library(quantmod)
+library(lubridate)  # For year() function below
+dat = read.csv("~/LL/Coursera/Courses/PracticalMachineLearning/gaData.csv")
+training = dat[year(dat$date) < 2012,]
+testing = dat[(year(dat$date)) > 2011,]
+tstrain = ts(training$visitsTumblr)
+```
+
+Fit a model using the bats() function in the forecast package to the training time series. Then forecast this model for the remaining time points. For how many of the testing points is the true value within the 95% prediction interval bounds?
+
+```{r}
+mod <- bats(tstrain)
+fcast <- forecast.bats(mod, level=95, h=nrow(testing))
+acc <- accuracy(fcast, testing$visitsTumblr)
+
+count <- 0
+for (i in 1:nrow(testing)) {
+        if (testing$visitsTumblr[i] > fcast$lower[i]) {
+                if(testing$visitsTumblr[i] < fcast$upper[i]) {
+                count <- count + 1}
+        }
+}
+count/nrow(testing)
+```
+
+accuracy is .9617021
+
+5.) Load the concrete data with the commands:
+
+```{r message=FALSE, warning=FALSE}
+set.seed(3523)
+library(AppliedPredictiveModeling)
+data(concrete)
+inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
+training = concrete[ inTrain,]
+testing = concrete[-inTrain,]
+```
+
+Set the seed to 325 and fit a support vector machine using the e1071 package to predict Compressive Strength using the default settings. Predict on the testing set. What is the RMSE?
+
+
+
+
+
+
+
