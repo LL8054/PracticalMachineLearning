@@ -1,0 +1,114 @@
+---
+title: "Qz 4"
+output: html_document
+---
+
+1.) Load the vowel.train and vowel.test data sets:
+
+```{r warning=FALSE, message=FALSE}
+library(ElemStatLearn)
+data(vowel.train)
+data(vowel.test)
+library(caret)
+library(gbm)
+library(mgcv)
+library(nlme)
+```
+
+Set the variable y to be a factor variable in both the training and test set. Then set the seed to 33833. Fit (1) a random forest predictor relating the factor variable y to the remaining variables and (2) a boosted predictor using the "gbm" method. Fit these both with the train() command in the caret package. 
+
+What are the accuracies for the two approaches on the test data set? What is the accuracy among the test set samples where the two methods agree?
+
+```{r message=FALSE, warning=FALSE}
+vowel.train$y <- factor(vowel.train$y)
+vowel.test$y <- factor(vowel.test$y)
+set.seed(33833)
+
+rf <- train(y~., method="rf", data=vowel.train)
+gbm <- train(y~., method="gbm", data=vowel.train)
+
+prf <- predict(rf, vowel.test)
+pgbm <- predict(gbm, vowel.test)
+
+cmrf <- confusionMatrix(prf, vowel.test$y)
+cmgbm <- confusionMatrix(pgbm, vowel.test$y)
+
+cmrf$overall['Accuracy']
+cmgbm$overall['Accuracy']
+
+### following chunk doesn't work for some reason
+datacombined <- data.frame(prf, pgbm, y=vowel.test$y)
+fit <- train(y~., datacombined, method="gam")
+pfit <- predict(fit, datacombined)
+cmpfit <- confusionMatrix(pfit, vowel.test$y)
+cmpfit$overall['Accuracy']
+### end chunk that doesn't work
+
+
+```
+
+
+```{r warning=FALSE, message=FALSE}
+adata <- data.frame("prf"=numeric(), "pgbm"=numeric(), "y"=numeric())
+for (i in 1:nrow(datacombined)) {
+    if (identical(datacombined[i,1],datacombined[i,2])){
+    adata[(nrow(adata)+1),] <- datacombined[i,]
+    }
+}
+
+count <- 0
+for (i in 1:nrow(adata)) {
+    if (identical(adata[i,2], adata[i,3])) {
+        count <- count + 1
+    }
+}
+
+count
+count / nrow(adata)
+```
+
+Accuracy for combined method is `r count / nrow(adata)`.
+
+2.)  Load the Alzheimer's data using the following commands
+
+```{r warning=FALSE, message=FALSE}
+library(caret)
+library(gbm)
+set.seed(3433)
+library(AppliedPredictiveModeling)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+training = adData[ inTrain,]
+testing = adData[-inTrain,]
+```
+
+Set the seed to 62433 and predict diagnosis with all the other variables using a random forest ("rf"), boosted trees ("gbm") and linear discriminant analysis ("lda") model. Stack the predictions together using random forests ("rf"). What is the resulting accuracy on the test set? Is it better or worse than each of the individual predictions?
+
+```{r message=FALSE, warning=FALSE}
+set.seed(62433)
+
+#RF
+fitRF <- train(diagnosis~., method="rf", training)
+pRF <- predict(fitRF, testing)
+cmRF <- confusionMatrix(pRF, testing$diagnosis)
+cmRF$overall['Accuracy']
+
+#boosted trees
+fitGBM <- train(diagnosis~., method="gbm", training)
+pGBM <- predict(fitGBM, testing)
+cmGBF <- confusionMatrix(pGBM, testing$diagnosis)
+cmGBF$overall['Accuracy']
+
+#linear discriminant analysis
+fitLDA <- train(diagnosis~., method="lda", training)
+pLDA <- predict(fitLDA, testing)
+cmLDA <- confusionMatrix(pLDA, testing$diagnosis)
+cmLDA$overall['Accuracy']
+
+combinedset <- data.frame(pRF, pGBM, pLDA, diagnosis <- testing$diagnosis)
+fit <- train(diagnosis~., combinedset)
+predict <- predict(fit, combinedset)
+cm <- confusionMatrix(predict, testing$diagnosis)
+cm$overall['Accuracy']
+```
