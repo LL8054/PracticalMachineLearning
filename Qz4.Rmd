@@ -1,7 +1,10 @@
----
-title: "Qz 4"
-output: html_document
----
+Lawrence Lau | Quiz 4
+-------------| -------------
+The          | Worst
+Quiz         | Ever
+
+
+
 
 1.) Load the vowel.train and vowel.test data sets:
 
@@ -20,7 +23,7 @@ Set the variable y to be a factor variable in both the training and test set. Th
 
 What are the accuracies for the two approaches on the test data set? What is the accuracy among the test set samples where the two methods agree?
 
-```{r message=FALSE, warning=FALSE, echo=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 vowel.train$y <- factor(vowel.train$y)
 vowel.test$y <- factor(vowel.test$y)
 set.seed(33833)
@@ -92,7 +95,7 @@ testing = adData[-inTrain,]
 
 Set the seed to 62433 and predict diagnosis with all the other variables using a random forest ("rf"), boosted trees ("gbm") and linear discriminant analysis ("lda") model. Stack the predictions together using random forests ("rf"). What is the resulting accuracy on the test set? Is it better or worse than each of the individual predictions?
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 set.seed(62433)
 
 fitRF <- train(diagnosis~., method="rf", training, trControl=trainControl(number=3))
@@ -145,7 +148,6 @@ set.seed(233)
 
 fit <- train(CompressiveStrength ~ ., training, method="lasso")
 plot.enet(fit$finalModel, xvar="penalty", use.color=TRUE)
-legend('topright')
 ```
 
 last coefficient to be set to zero is Cement.
@@ -159,7 +161,7 @@ Using the commands:
 library(forecast)
 library(quantmod)
 library(lubridate)  # For year() function below
-dat = read.csv("~/LL/Coursera/Courses/PracticalMachineLearning/gaData.csv")
+dat = read.csv("~/datasciencecoursera/Courses/PracticalMachineLearning/gaData.csv")
 training = dat[year(dat$date) < 2012,]
 testing = dat[(year(dat$date)) > 2011,]
 tstrain = ts(training$visitsTumblr)
@@ -189,6 +191,7 @@ accuracy is .9617021
 ```{r message=FALSE, warning=FALSE}
 set.seed(3523)
 library(AppliedPredictiveModeling)
+library(caret)
 data(concrete)
 inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
 training = concrete[ inTrain,]
@@ -197,9 +200,59 @@ testing = concrete[-inTrain,]
 
 Set the seed to 325 and fit a support vector machine using the e1071 package to predict Compressive Strength using the default settings. Predict on the testing set. What is the RMSE?
 
+```{r include=FALSE}
+set.seed(325)
+library(e1071)
+library(kernlab)
+
+svmRadial <- train(CompressiveStrength ~ ., training, method="svmRadial")
+#lssvmLinear <- train(CompressiveStrength ~ ., training, method="lssvmLinear")
+#lssvmPoly <- train(CompressiveStrength ~ ., training, method="lssvmPoly")
+#lssvmRadial <- train(CompressiveStrength ~ ., training, method="lssvmRadial")
+#svmBoundrangeString <- train(CompressiveStrength ~ ., training, method="svmBoundrangeString")
+#svmRadialWeights <- train(CompressiveStrength ~ ., training, method="svmRadialWeights")
+#svmExpoString <- train(CompressiveStrength ~ ., training, method="svmExpoString")
+svmLinear <- train(CompressiveStrength ~ ., training, method="svmLinear")
+svmPoly <- train(CompressiveStrength ~ ., training, method="svmPoly")
+svmRadial <- train(CompressiveStrength ~ ., training, method="svmRadial")
+svmRadialCost <- train(CompressiveStrength ~ ., training, method="svmRadialCost")
+#svmSpectrumString <- train(CompressiveStrength ~ ., training, method="svmSpectrumString")
+
+psvmRadial <- predict(svmRadial, testing)
+#plssvmLinear <- predict(lssvmLinear, testing)
+#plssvmPoly <- predict(lssvmPoly, testing)
+#plssvmRadial <- predict(lssvmRadial, testing)
+#psvmBoundrangeString <- predict(svmBoundrangeString, testing)
+#psvmRadialWeights <- predict(svmRadialWeights, testing)
+#psvmExpoString <- predict(svmExpoString, testing)
+psvmLinear <- predict(svmLinear, testing)
+psvmPoly <- predict(svmPoly, testing)
+psvmRadial <- predict(svmRadial, testing)
+psvmRadialCost <- predict(svmRadialCost, testing)
+#psvmSpectrumString <- predict(svmSpectrumString, testing)
 
 
+accsvmRadial <- accuracy(psvmRadial, testing$CompressiveStrength)
+#acclssvmLinear <- accuracy(plssvmLinear, testing$CompressiveStrength)
+#acclssvmPoly <- accuracy(plssvmPoly, testing$CompressiveStrength)
+#acclssvmRadial <- accuracy(plssvmRadial, testing$CompressiveStrength)
+#accsvmBoundrangeString <- accuracy(psvmBoundrangeString, testing$CompressiveStrength)
+#accsvmRadialWeights <- accuracy(psvmRadialWeights, testing$CompressiveStrength)
+#accsvmExpoString <- accuracy(psvmExpoString, testing$CompressiveStrength)
+accsvmLinear <- accuracy(psvmLinear, testing$CompressiveStrength)
+accsvmPoly <- accuracy(psvmPoly, testing$CompressiveStrength)
+accsvmRadial <- accuracy(psvmRadial, testing$CompressiveStrength)
+accsvmRadialCost <- accuracy(psvmRadialCost, testing$CompressiveStrength)
+#accsvmSpectrumString <- accuracy(psvmSpectrumString, testing$CompressiveStrength)
+```
 
+```{r}
+results <- c(accsvmRadial[2], accsvmLinear[2], accsvmPoly[2], accsvmRadial[2], accsvmRadialCost[2])
+```
+
+accsvmRadial | accsvmLinear|  accsvmPoly | accsvmRadial|accsvmRadialCost
+-------------|-------------|-------------|-------------|-------------
+6.177553     |   11.220626 |   5.993826  |  6.177553   |  6.106515
 
 
 
