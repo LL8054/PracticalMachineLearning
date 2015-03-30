@@ -204,7 +204,9 @@ Set the seed to 325 and fit a support vector machine using the e1071 package to 
 set.seed(325)
 library(e1071)
 library(kernlab)
+library(forecast)
 
+svm <- svm(CompressiveStrength ~ ., training)
 svmRadial <- train(CompressiveStrength ~ ., training, method="svmRadial")
 #lssvmLinear <- train(CompressiveStrength ~ ., training, method="lssvmLinear")
 #lssvmPoly <- train(CompressiveStrength ~ ., training, method="lssvmPoly")
@@ -218,6 +220,7 @@ svmRadial <- train(CompressiveStrength ~ ., training, method="svmRadial")
 svmRadialCost <- train(CompressiveStrength ~ ., training, method="svmRadialCost")
 #svmSpectrumString <- train(CompressiveStrength ~ ., training, method="svmSpectrumString")
 
+psvm <- predict(svm, testing)
 psvmRadial <- predict(svmRadial, testing)
 #plssvmLinear <- predict(lssvmLinear, testing)
 #plssvmPoly <- predict(lssvmPoly, testing)
@@ -231,7 +234,7 @@ psvmRadial <- predict(svmRadial, testing)
 psvmRadialCost <- predict(svmRadialCost, testing)
 #psvmSpectrumString <- predict(svmSpectrumString, testing)
 
-
+accsvm <- accuracy(psvm, testing$CompressiveStrength)
 accsvmRadial <- accuracy(psvmRadial, testing$CompressiveStrength)
 #acclssvmLinear <- accuracy(plssvmLinear, testing$CompressiveStrength)
 #acclssvmPoly <- accuracy(plssvmPoly, testing$CompressiveStrength)
@@ -247,12 +250,13 @@ accsvmRadialCost <- accuracy(psvmRadialCost, testing$CompressiveStrength)
 ```
 
 ```{r}
-results <- c(accsvmRadial[2], accsvmLinear[2], accsvmPoly[2], accsvmRadial[2], accsvmRadialCost[2])
+results <- c(accsvm[2], accsvmRadial[2], accsvmLinear[2], accsvmPoly[2], accsvmRadial[2], accsvmRadialCost[2])
 ```
 
-accsvmRadial | accsvmLinear|  accsvmPoly | accsvmRadial|accsvmRadialCost
--------------|-------------|-------------|-------------|-------------
-6.177553     |   11.220626 |   5.993826  |  6.177553   |  6.106515
+    accsvm   |accsvmRadial | accsvmLinear|  accsvmPoly | accsvmRadial|accsvmRadialCost
+    ---------|-------------|-------------|-------------|-------------|-------------
+    6.547958 |   6.177553  |   11.220626 |   5.993826  |  6.177553   |  6.106515
 
+correct answer is 6.72
 
 

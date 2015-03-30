@@ -209,27 +209,11 @@ inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
 training = concrete[ inTrain,]
 testing = concrete[-inTrain,]</code></pre>
 <p>Set the seed to 325 and fit a support vector machine using the e1071 package to predict Compressive Strength using the default settings. Predict on the testing set. What is the RMSE?</p>
-<pre class="r"><code>results &lt;- c(accsvmRadial[2], accsvmLinear[2], accsvmPoly[2], accsvmRadial[2], accsvmRadialCost[2])</code></pre>
-<table>
-<thead>
-<tr class="header">
-<th align="left">accsvmRadial</th>
-<th align="left">accsvmLinear</th>
-<th align="left">accsvmPoly</th>
-<th align="left">accsvmRadial</th>
-<th align="left">accsvmRadialCost</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">6.177553</td>
-<td align="left">11.220626</td>
-<td align="left">5.993826</td>
-<td align="left">6.177553</td>
-<td align="left">6.106515</td>
-</tr>
-</tbody>
-</table>
+<pre class="r"><code>results &lt;- c(accsvm[2], accsvmRadial[2], accsvmLinear[2], accsvmPoly[2], accsvmRadial[2], accsvmRadialCost[2])</code></pre>
+<pre><code>accsvm   |accsvmRadial | accsvmLinear|  accsvmPoly | accsvmRadial|accsvmRadialCost
+---------|-------------|-------------|-------------|-------------|-------------
+6.547958 |   6.177553  |   11.220626 |   5.993826  |  6.177553   |  6.106515</code></pre>
+<p>correct answer is 6.72</p>
 
 
 </div>
